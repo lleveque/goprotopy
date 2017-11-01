@@ -15,65 +15,69 @@
 package main
 
 import (
-    "path/filepath"
     "log"
     "os"
 )
 
 var outputFolder = "python"
 
-func processFile(inputPath string) {
-    log.Printf("Processing file %s", inputPath)
-
+func processFile(inputPath string) (err error) {
     packageName, functions := loadFile(inputPath)
 
-    log.Printf("Found goprotopy functions to generate in package %v: %#v", packageName, functions)
-
-    outputPath, err := getRenderedPath(inputPath)
-    if err != nil {
-        log.Fatalf("Could not get output path: %s", err)
-    }
-
-    outputPathC, err := getCRenderedPath(inputPath)
-    if err != nil {
-        log.Fatalf("Could not get C output path: %s", err)
-    }
+    // TODO Construct full package name
+    fullPackageName := "github.com/lleveque/greeting"
 
     // Create subfolder
-    err = os.MkdirAll(outputFolder, os.ModePerm)
+    if err = os.MkdirAll(outputFolder, os.ModePerm); err != nil {
+        return
+    }
+
+    outputPath, err := getRenderedPath(inputPath, outputFolder, "go")
     if err != nil {
-        log.Fatalf("Could not create folder: %s", err)
+        return
     }
     
-    output, err := os.OpenFile(filepath.Join(outputFolder, outputPath), os.O_WRONLY|os.O_CREATE, 0600)
+    // Render python-friendly Go file
+    output, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE, 0600)
     if err != nil {
-        log.Fatalf("Could not open output file: %s", err)
+        return
     }
     defer output.Close()
 
-    // TODO Construct full package name
-    if err := render(output, "github.com/lleveque/goprotopiable", packageName, functions); err != nil {
-        log.Fatalf("Could not generate go code: %s", err)
+    if err = render(output, fullPackageName, packageName, functions); err != nil {
+        return
+    }
+
+    outputPathC, err := getRenderedPath(inputPath, outputFolder, "c")
+    if err != nil {
+        return
     }
 
     // Render C file
-    outputC, err := os.OpenFile(filepath.Join(outputFolder, outputPathC), os.O_WRONLY|os.O_CREATE, 0600)
+    outputC, err := os.OpenFile(outputPathC, os.O_WRONLY|os.O_CREATE, 0600)
     if err != nil {
-        log.Fatalf("Could not open output file: %s", err)
+        return
     }
     defer outputC.Close()
 
-    // TODO Construct full package name
-    if err := renderC(outputC, "github.com/lleveque/goprotopiable", packageName, functions); err != nil {
-        log.Fatalf("Could not generate go code: %s", err)
+    if err = renderC(outputC, fullPackageName, packageName, functions); err != nil {
+        return
     }
+    return
 }
 
 func main() {
     log.SetFlags(0)
     log.SetPrefix("goprotopy: ")
 
-    for _, path := range os.Args[2:] {
-        processFile(path)
+    if len(os.Args) != 2 {
+        log.Fatalf("Usage : goprotopy filename.go")
+        return
+    }
+
+    for _, path := range os.Args[1:] {
+        if err := processFile(path); err != nil {
+            log.Fatalf("Error processing file %s: %s", path, err)
+        }
     }
 }

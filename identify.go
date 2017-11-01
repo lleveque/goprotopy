@@ -15,12 +15,13 @@
 package main
 
 import (
-    "fmt"
     "go/ast"
     "go/parser"
     "go/token"
     "log"
     "strings"
+    "unicode"
+    "unicode/utf8"
 )
 
 func loadFile(inputPath string) (string, []GeneratedFunction) {
@@ -35,18 +36,18 @@ func loadFile(inputPath string) (string, []GeneratedFunction) {
         log.Fatalf("Could not determine package name of %s", inputPath)
     }
 
-    protopyFuncs := map[string]bool{}
+    protopyFuncs := map[string]string{}
     for _, decl := range f.Decls {
-        funcName, ok := identifyFunction(decl)
+        funcName, funcDoc, ok := identifyFunction(decl)
         if ok {
-            protopyFuncs[funcName] = true
+            protopyFuncs[funcName] = funcDoc
             continue
         }
     }
 
     functions := []GeneratedFunction{}
-    for funcName, _ := range protopyFuncs {
-        protopyFunction := GeneratedFunction{funcName}
+    for funcName, funcDoc := range protopyFuncs {
+        protopyFunction := GeneratedFunction{funcName, funcDoc}
         functions = append(functions, protopyFunction)
     }
 
@@ -60,7 +61,7 @@ func identifyPackage(f *ast.File) string {
     return f.Name.Name
 }
 
-func identifyFunction(decl ast.Decl) (funcName string, match bool) {
+func identifyFunction(decl ast.Decl) (funcName string, funcDoc string, match bool) {
     funcDecl, ok := decl.(*ast.FuncDecl)
     if !ok {
         return
@@ -87,10 +88,37 @@ func identifyFunction(decl ast.Decl) (funcName string, match bool) {
         return
     }
 
-    // TODO Check function is exported
-    // TODO Check function signature
-    fmt.Printf("Function %v : takes %#v returns %#v\n", funcName, funcDecl.Type.Params.List, funcDecl.Type.Results.List)
-    
+    // If function is not exported, don't handle it
+    firstLetter, _ := utf8.DecodeRuneInString(funcName)
+    if unicode.IsLower(firstLetter) {
+        return
+    }
+
+    // Check func signature :
+    funcParams := funcDecl.Type.Params.List
+    funcResults := funcDecl.Type.Results.List
+    // If function doesn't have exactly 1 parameter and 2 results, don't handle it
+    if len(funcParams) != 1 || len(funcResults) != 2 {
+        return
+    }
+    // TODO Check types
+    // fmt.Printf("Function %v : takes %#v returns %#v, %#v\n", funcName, funcParams[0].Type, funcResults[0].Type, funcResults[1].Type)
+
+    // Get documentation
+    for _, comment := range funcDecl.Doc.List {
+        commentText := comment.Text
+        // Don't handle our protopy annotation
+        if commentText == "// @protopy" {
+            continue
+        }
+        commentText = strings.TrimPrefix(commentText, "// ")
+        commentText = strings.TrimPrefix(commentText, "/* ")
+        commentText = strings.TrimSuffix(commentText, " */")
+        funcDoc += commentText+"\n"
+    }
+    funcDoc = strings.TrimSuffix(funcDoc, "\n")
+    funcDoc = strings.Replace(funcDoc, "\n", "\\n", -1)
+        
     match = true
     return
 }
