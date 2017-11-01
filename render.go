@@ -83,7 +83,9 @@ package main
 // Py_ssize_t getByteCount(PyObject *);
 import "C"
 import "unsafe"
-import "{{.FullPackageName}}"
+import {{.PackageName}} "{{.FullPackageName}}"
+
+//go:generate go build -buildmode=c-shared -o {{.PackageName}}.so
 
 func main() {}
 
