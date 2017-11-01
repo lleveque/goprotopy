@@ -150,8 +150,8 @@ func getCRenderedPath(inputPath string) (string, error) {
         return "", fmt.Errorf("Input path %s doesn't have .go extension", inputPath)
     }
     trimmed := strings.TrimSuffix(inputPath, ".go")
-    dir, _ := filepath.Split(trimmed)
-    return filepath.Join(dir, fmt.Sprintf("%s.c", inputPath)), nil
+    dir, trimmedFile := filepath.Split(trimmed)
+    return filepath.Join(dir, fmt.Sprintf("%s.c", trimmedFile)), nil
 }
 
 type generateTemplateData struct {
