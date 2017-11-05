@@ -20,8 +20,6 @@ import (
     "os"
 )
 
-// var outputFolder = "python"
-
 func processFile(packagePath string, filePath string, outputFolder string) (err error) {
     packageName, functions := loadFile(filePath)
 
@@ -67,8 +65,6 @@ func processFile(packagePath string, filePath string, outputFolder string) (err 
 func main() {
     log.SetFlags(0)
     log.SetPrefix("goprotopy: ")
-
-    // packagePath := "github.com/lleveque/greeting"
 
     packagePath := flag.String("packagePath", "", "the full path of the go package you want to generate Python bindings for")
     outputFolder := flag.String("outputFolder", "python", "the output folder for generated files")
